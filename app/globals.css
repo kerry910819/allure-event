@@ -1,0 +1,84 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f6efe3;
+  color: #3d2b1f;
+  font-family: "Microsoft JhengHei", Arial, sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  background: #8b5e3c;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #6f472b;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #c9ad8f;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 15px;
+  background: #fffaf2;
+}
+
+table {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+th {
+  background: #8b5e3c;
+  color: white;
+}
+
+td,
+th {
+  padding: 10px;
+}
+
+.card {
+  background: #fffaf2;
+  border: 1px solid #dec7aa;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(80, 50, 20, 0.08);
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.danger {
+  color: #c0392b;
+  font-weight: bold;
+}
+
+.success {
+  color: #2e7d32;
+  font-weight: bold;
+}
