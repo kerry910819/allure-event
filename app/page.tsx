@@ -5,7 +5,15 @@ import { supabase } from "../lib/supabase";
 
 function formatDate(dateString: string | null) {
   if (!dateString) return "未設定";
-  return new Date(dateString).toLocaleString("zh-TW");
+
+  return new Date(dateString).toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 type EventItem = {
@@ -74,7 +82,7 @@ export default async function Home() {
 
             <p>{event.description}</p>
 
-            <p>📅 活動開始：{formatDate(event.event_date || event.created_at)}</p>
+            <p>📅 活動開始：即日起</p>
 
             <p>⏰ 報名截止：{formatDate(event.registration_deadline)}</p>
 

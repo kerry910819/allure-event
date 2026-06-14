@@ -45,17 +45,35 @@ type Blacklist = {
 
 function formatDate(dateString: string | null) {
   if (!dateString) return "未設定";
-  return new Date(dateString).toLocaleString("zh-TW");
+
+  return new Date(dateString).toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function toDateTimeLocal(dateString: string | null) {
   if (!dateString) return "";
 
-  const d = new Date(dateString);
-  const offset = d.getTimezoneOffset();
-  const localDate = new Date(d.getTime() - offset * 60000);
+  const date = new Date(dateString);
 
-  return localDate.toISOString().slice(0, 16);
+  const taiwanDate = new Date(
+    date.toLocaleString("en-US", {
+      timeZone: "Asia/Taipei",
+    })
+  );
+
+  const year = taiwanDate.getFullYear();
+  const month = String(taiwanDate.getMonth() + 1).padStart(2, "0");
+  const day = String(taiwanDate.getDate()).padStart(2, "0");
+  const hour = String(taiwanDate.getHours()).padStart(2, "0");
+  const minute = String(taiwanDate.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 export default function AdminPage() {
@@ -141,7 +159,6 @@ export default function AdminPage() {
       registration_deadline: newDeadline
         ? new Date(newDeadline).toISOString()
         : null,
-
       require_game_name: requireGameName,
       require_game_id: requireGameId,
       require_discord: requireDiscord,
@@ -373,7 +390,9 @@ export default function AdminPage() {
         item.status || "",
         black ? "是" : "否",
         black?.reason || "",
-        new Date(item.created_at).toLocaleString("zh-TW"),
+        new Date(item.created_at).toLocaleString("zh-TW", {
+          timeZone: "Asia/Taipei",
+        }),
       ];
     });
 
@@ -576,11 +595,7 @@ export default function AdminPage() {
         <h2>活動管理</h2>
 
         <div style={{ overflowX: "auto" }}>
-          <table
-            border={1}
-            cellPadding={8}
-            style={{ borderCollapse: "collapse", width: "100%" }}
-          >
+          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
             <thead>
               <tr>
                 <th>活動名稱</th>
@@ -666,11 +681,7 @@ export default function AdminPage() {
         </form>
 
         <div style={{ overflowX: "auto", marginTop: 12 }}>
-          <table
-            border={1}
-            cellPadding={8}
-            style={{ borderCollapse: "collapse", width: "100%" }}
-          >
+          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
             <thead>
               <tr>
                 <th>遊戲名稱</th>
@@ -723,11 +734,7 @@ export default function AdminPage() {
         </div>
 
         <div style={{ overflowX: "auto" }}>
-          <table
-            border={1}
-            cellPadding={8}
-            style={{ borderCollapse: "collapse", width: "100%" }}
-          >
+          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
             <thead>
               <tr>
                 <th>活動名稱</th>
@@ -772,7 +779,11 @@ export default function AdminPage() {
                         "正常"
                       )}
                     </td>
-                    <td>{new Date(item.created_at).toLocaleString("zh-TW")}</td>
+                    <td>
+                      {new Date(item.created_at).toLocaleString("zh-TW", {
+                        timeZone: "Asia/Taipei",
+                      })}
+                    </td>
                     <td>
                       <button onClick={() => editRegistration(item)}>修改</button>
 
