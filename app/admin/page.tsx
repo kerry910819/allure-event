@@ -46,34 +46,36 @@ type Blacklist = {
 function formatDate(dateString: string | null) {
   if (!dateString) return "未設定";
 
-  return new Date(dateString).toLocaleString("zh-TW", {
+  return new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
+    hour12: false,
+  }).format(new Date(dateString));
 }
 
 function toDateTimeLocal(dateString: string | null) {
   if (!dateString) return "";
 
-  const date = new Date(dateString);
+  const parts = new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(dateString));
 
-  const taiwanDate = new Date(
-    date.toLocaleString("en-US", {
-      timeZone: "Asia/Taipei",
-    })
-  );
+  const get = (type: string) =>
+    parts.find((p) => p.type === type)?.value.padStart(2, "0") || "00";
 
-  const year = taiwanDate.getFullYear();
-  const month = String(taiwanDate.getMonth() + 1).padStart(2, "0");
-  const day = String(taiwanDate.getDate()).padStart(2, "0");
-  const hour = String(taiwanDate.getHours()).padStart(2, "0");
-  const minute = String(taiwanDate.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get(
+    "minute"
+  )}`;
 }
 
 function taipeiInputToIso(input: string) {
@@ -402,9 +404,7 @@ export default function AdminPage() {
         item.status || "",
         black ? "是" : "否",
         black?.reason || "",
-        new Date(item.created_at).toLocaleString("zh-TW", {
-          timeZone: "Asia/Taipei",
-        }),
+        formatDate(item.created_at),
       ];
     });
 
@@ -567,7 +567,11 @@ export default function AdminPage() {
         <h2>活動管理</h2>
 
         <div style={{ overflowX: "auto" }}>
-          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table
+            border={1}
+            cellPadding={8}
+            style={{ borderCollapse: "collapse", width: "100%" }}
+          >
             <thead>
               <tr>
                 <th>活動名稱</th>
@@ -653,7 +657,11 @@ export default function AdminPage() {
         </form>
 
         <div style={{ overflowX: "auto", marginTop: 12 }}>
-          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table
+            border={1}
+            cellPadding={8}
+            style={{ borderCollapse: "collapse", width: "100%" }}
+          >
             <thead>
               <tr>
                 <th>遊戲名稱</th>
@@ -706,7 +714,11 @@ export default function AdminPage() {
         </div>
 
         <div style={{ overflowX: "auto" }}>
-          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table
+            border={1}
+            cellPadding={8}
+            style={{ borderCollapse: "collapse", width: "100%" }}
+          >
             <thead>
               <tr>
                 <th>活動名稱</th>
@@ -751,13 +763,11 @@ export default function AdminPage() {
                         "正常"
                       )}
                     </td>
+                    <td>{formatDate(item.created_at)}</td>
                     <td>
-                      {new Date(item.created_at).toLocaleString("zh-TW", {
-                        timeZone: "Asia/Taipei",
-                      })}
-                    </td>
-                    <td>
-                      <button onClick={() => editRegistration(item)}>修改</button>
+                      <button onClick={() => editRegistration(item)}>
+                        修改
+                      </button>
 
                       <button
                         onClick={() => deleteRegistration(item.id)}
