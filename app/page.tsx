@@ -5,27 +5,49 @@ function formatDate(dateString: string | null) {
   return new Date(dateString).toLocaleString("zh-TW");
 }
 
+type EventItem = {
+  id: string;
+  title: string;
+  description: string;
+  max_players: number;
+  is_open: boolean;
+  event_date: string | null;
+  registration_deadline: string | null;
+};
+
+type Registration = {
+  event_id: string;
+};
+
 export default async function Home() {
-  const now = new Date().toISOString();
+  const now = new Date();
 
   const { data: events } = await supabase
     .from("events")
-    .select(`
-      *,
-      registrations(count)
-    `)
+    .select("*")
     .order("created_at", { ascending: false });
+
+  const { data: registrations } = await supabase
+    .from("registrations")
+    .select("event_id");
+
+  const countMap = new Map<string, number>();
+
+  (registrations as Registration[] | null)?.forEach((r) => {
+    countMap.set(r.event_id, (countMap.get(r.event_id) || 0) + 1);
+  });
 
   return (
     <main className="container">
       <h1 className="page-title">🎮 Allure 活動報名系統</h1>
 
-      {events?.map((event) => {
-        const currentCount = event.registrations?.[0]?.count ?? 0;
+      {(events as EventItem[] | null)?.map((event) => {
+        const currentCount = countMap.get(event.id) || 0;
         const isFull = currentCount >= event.max_players;
+
         const isDeadlinePassed =
           event.registration_deadline &&
-          event.registration_deadline < now;
+          new Date(event.registration_deadline) < now;
 
         return (
           <section key={event.id} className="card" style={{ marginBottom: 20 }}>

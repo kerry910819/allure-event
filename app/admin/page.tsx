@@ -11,6 +11,13 @@ type EventItem = {
   is_open: boolean;
   event_date: string | null;
   registration_deadline: string | null;
+  require_game_name: boolean;
+  require_game_id: boolean;
+  require_discord: boolean;
+  require_rank: boolean;
+  require_unit_1: boolean;
+  require_unit_2: boolean;
+  require_note: boolean;
 };
 
 type Registration = {
@@ -20,6 +27,9 @@ type Registration = {
   game_id: string;
   discord_name: string;
   rank: string;
+  unit_1: string;
+  unit_2: string;
+  note: string;
   status: string;
   created_at: string;
   events?: { title: string };
@@ -35,14 +45,6 @@ type Blacklist = {
 function formatDate(dateString: string | null) {
   if (!dateString) return "未設定";
   return new Date(dateString).toLocaleString("zh-TW");
-}
-
-function toInputDateTime(dateString: string | null) {
-  if (!dateString) return "";
-  const d = new Date(dateString);
-  const offset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
 }
 
 export default function AdminPage() {
@@ -62,6 +64,14 @@ export default function AdminPage() {
   const [newMaxPlayers, setNewMaxPlayers] = useState(30);
   const [newEventDate, setNewEventDate] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
+
+  const [requireGameName, setRequireGameName] = useState(true);
+  const [requireGameId, setRequireGameId] = useState(true);
+  const [requireDiscord, setRequireDiscord] = useState(false);
+  const [requireRank, setRequireRank] = useState(false);
+  const [requireUnit1, setRequireUnit1] = useState(false);
+  const [requireUnit2, setRequireUnit2] = useState(false);
+  const [requireNote, setRequireNote] = useState(false);
 
   const [blackName, setBlackName] = useState("");
   const [blackId, setBlackId] = useState("");
@@ -121,6 +131,13 @@ export default function AdminPage() {
       registration_deadline: newDeadline
         ? new Date(newDeadline).toISOString()
         : null,
+      require_game_name: requireGameName,
+      require_game_id: requireGameId,
+      require_discord: requireDiscord,
+      require_rank: requireRank,
+      require_unit_1: requireUnit1,
+      require_unit_2: requireUnit2,
+      require_note: requireNote,
     });
 
     if (error) {
@@ -164,33 +181,56 @@ export default function AdminPage() {
     loadData();
   }
 
-  async function updateEventTime(event: EventItem) {
-    const eventDateInput = prompt(
-      "請輸入活動日期時間，格式：YYYY-MM-DDTHH:mm",
-      toInputDateTime(event.event_date)
-    );
+  async function deleteRegistration(id: string) {
+    if (!confirm("確定刪除這筆報名資料嗎？")) return;
 
-    if (eventDateInput === null) return;
-
-    const deadlineInput = prompt(
-      "請輸入報名截止時間，格式：YYYY-MM-DDTHH:mm",
-      toInputDateTime(event.registration_deadline)
-    );
-
-    if (deadlineInput === null) return;
-
-    const { error } = await supabase
-      .from("events")
-      .update({
-        event_date: eventDateInput ? new Date(eventDateInput).toISOString() : null,
-        registration_deadline: deadlineInput
-          ? new Date(deadlineInput).toISOString()
-          : null,
-      })
-      .eq("id", event.id);
+    const { error } = await supabase.from("registrations").delete().eq("id", id);
 
     if (error) {
-      alert("更新日期失敗：" + error.message);
+      alert("刪除失敗：" + error.message);
+      return;
+    }
+
+    loadData();
+  }
+
+  async function editRegistration(item: Registration) {
+    const gameName = prompt("遊戲名稱", item.game_name || "");
+    if (gameName === null) return;
+
+    const gameId = prompt("遊戲UID", item.game_id || "");
+    if (gameId === null) return;
+
+    const discord = prompt("Discord", item.discord_name || "");
+    if (discord === null) return;
+
+    const rank = prompt("段位", item.rank || "");
+    if (rank === null) return;
+
+    const unit1 = prompt("主要兵種", item.unit_1 || "");
+    if (unit1 === null) return;
+
+    const unit2 = prompt("次要兵種", item.unit_2 || "");
+    if (unit2 === null) return;
+
+    const note = prompt("備註", item.note || "");
+    if (note === null) return;
+
+    const { error } = await supabase
+      .from("registrations")
+      .update({
+        game_name: gameName,
+        game_id: gameId,
+        discord_name: discord,
+        rank,
+        unit_1: unit1,
+        unit_2: unit2,
+        note,
+      })
+      .eq("id", item.id);
+
+    if (error) {
+      alert("修改失敗：" + error.message);
       return;
     }
 
@@ -224,9 +264,12 @@ export default function AdminPage() {
 
   async function deleteBlacklist(id: string) {
     if (!confirm("確定移除黑名單？")) return;
-
     await supabase.from("blacklist").delete().eq("id", id);
     loadData();
+  }
+
+  function countByEvent(eventId: string) {
+    return registrations.filter((r) => r.event_id === eventId).length;
   }
 
   function isBlacklisted(item: Registration) {
@@ -243,10 +286,6 @@ export default function AdminPage() {
     });
   }
 
-  function countByEvent(eventId: string) {
-    return registrations.filter((r) => r.event_id === eventId).length;
-  }
-
   const filteredRegistrations = registrations.filter((item) => {
     const keyword = search.toLowerCase();
     const matchEvent =
@@ -257,6 +296,9 @@ export default function AdminPage() {
       item.game_id?.toLowerCase().includes(keyword) ||
       item.discord_name?.toLowerCase().includes(keyword) ||
       item.rank?.toLowerCase().includes(keyword) ||
+      item.unit_1?.toLowerCase().includes(keyword) ||
+      item.unit_2?.toLowerCase().includes(keyword) ||
+      item.note?.toLowerCase().includes(keyword) ||
       item.events?.title?.toLowerCase().includes(keyword);
 
     return matchEvent && matchSearch;
@@ -269,6 +311,9 @@ export default function AdminPage() {
       "遊戲UID",
       "Discord",
       "段位",
+      "主要兵種",
+      "次要兵種",
+      "備註",
       "狀態",
       "黑名單警示",
       "黑名單原因",
@@ -284,6 +329,9 @@ export default function AdminPage() {
         item.game_id || "",
         item.discord_name || "",
         item.rank || "",
+        item.unit_1 || "",
+        item.unit_2 || "",
+        item.note || "",
         item.status || "",
         black ? "是" : "否",
         black?.reason || "",
@@ -304,9 +352,14 @@ export default function AdminPage() {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "Allure報名名單.csv";
-    link.click();
 
+    const selectedEvent = events.find((e) => e.id === selectedEventId);
+    link.download =
+      selectedEventId === "all"
+        ? "Allure全部報名名單.csv"
+        : `${selectedEvent?.title || "活動"}報名名單.csv`;
+
+    link.click();
     URL.revokeObjectURL(url);
   }
 
@@ -359,12 +412,10 @@ export default function AdminPage() {
         <button onClick={logout} style={{ marginRight: 10 }}>
           登出
         </button>
-
         <button onClick={loadData} style={{ marginRight: 10 }}>
           重新整理
         </button>
-
-        <button onClick={exportCsv}>匯出 Excel</button>
+        <button onClick={exportCsv}>匯出目前篩選名單</button>
       </section>
 
       <section className="card" style={{ marginBottom: 20 }}>
@@ -395,16 +446,81 @@ export default function AdminPage() {
               type="datetime-local"
               value={newEventDate}
               onChange={(e) => setNewEventDate(e.target.value)}
-              title="活動日期"
             />
 
             <input
               type="datetime-local"
               value={newDeadline}
               onChange={(e) => setNewDeadline(e.target.value)}
-              title="報名截止"
             />
+          </div>
 
+          <div style={{ marginTop: 15, display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={requireGameName}
+                onChange={(e) => setRequireGameName(e.target.checked)}
+              />
+              遊戲名稱必填
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={requireGameId}
+                onChange={(e) => setRequireGameId(e.target.checked)}
+              />
+              UID必填
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={requireDiscord}
+                onChange={(e) => setRequireDiscord(e.target.checked)}
+              />
+              Discord必填
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={requireRank}
+                onChange={(e) => setRequireRank(e.target.checked)}
+              />
+              段位必填
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={requireUnit1}
+                onChange={(e) => setRequireUnit1(e.target.checked)}
+              />
+              主要兵種必填
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={requireUnit2}
+                onChange={(e) => setRequireUnit2(e.target.checked)}
+              />
+              次要兵種必填
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={requireNote}
+                onChange={(e) => setRequireNote(e.target.checked)}
+              />
+              備註必填
+            </label>
+          </div>
+
+          <div style={{ marginTop: 15 }}>
             <button type="submit">新增活動</button>
           </div>
         </form>
@@ -413,53 +529,48 @@ export default function AdminPage() {
       <section className="card" style={{ marginBottom: 20 }}>
         <h2>活動管理</h2>
 
-        <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              <th>活動名稱</th>
-              <th>說明</th>
-              <th>活動日期</th>
-              <th>報名截止</th>
-              <th>目前人數</th>
-              <th>上限</th>
-              <th>狀態</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {events.map((event) => (
-              <tr key={event.id}>
-                <td>{event.title}</td>
-                <td>{event.description}</td>
-                <td>{formatDate(event.event_date)}</td>
-                <td>{formatDate(event.registration_deadline)}</td>
-                <td>{countByEvent(event.id)}</td>
-                <td>{event.max_players}</td>
-                <td>{event.is_open ? "開放中" : "已關閉"}</td>
-                <td>
-                  <button onClick={() => toggleEvent(event)}>
-                    {event.is_open ? "關閉報名" : "開放報名"}
-                  </button>
-
-                  <button
-                    onClick={() => updateEventTime(event)}
-                    style={{ marginLeft: 8 }}
-                  >
-                    修改日期
-                  </button>
-
-                  <button
-                    onClick={() => deleteEvent(event.id)}
-                    style={{ marginLeft: 8 }}
-                  >
-                    刪除
-                  </button>
-                </td>
+        <div style={{ overflowX: "auto" }}>
+          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th>活動名稱</th>
+                <th>說明</th>
+                <th>活動日期</th>
+                <th>報名截止</th>
+                <th>目前人數</th>
+                <th>上限</th>
+                <th>狀態</th>
+                <th>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id}>
+                  <td>{event.title}</td>
+                  <td>{event.description}</td>
+                  <td>{formatDate(event.event_date)}</td>
+                  <td>{formatDate(event.registration_deadline)}</td>
+                  <td>{countByEvent(event.id)}</td>
+                  <td>{event.max_players}</td>
+                  <td>{event.is_open ? "開放中" : "已關閉"}</td>
+                  <td>
+                    <button onClick={() => toggleEvent(event)}>
+                      {event.is_open ? "關閉報名" : "開放報名"}
+                    </button>
+
+                    <button
+                      onClick={() => deleteEvent(event.id)}
+                      style={{ marginLeft: 8 }}
+                    >
+                      刪除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="card" style={{ marginBottom: 20 }}>
@@ -490,29 +601,31 @@ export default function AdminPage() {
           <button type="submit">加入黑名單</button>
         </form>
 
-        <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%", marginTop: 12 }}>
-          <thead>
-            <tr>
-              <th>遊戲名稱</th>
-              <th>UID</th>
-              <th>原因</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {blacklist.map((b) => (
-              <tr key={b.id}>
-                <td>{b.game_name}</td>
-                <td>{b.game_id}</td>
-                <td>{b.reason}</td>
-                <td>
-                  <button onClick={() => deleteBlacklist(b.id)}>移除</button>
-                </td>
+        <div style={{ overflowX: "auto", marginTop: 12 }}>
+          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th>遊戲名稱</th>
+                <th>UID</th>
+                <th>原因</th>
+                <th>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {blacklist.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.game_name}</td>
+                  <td>{b.game_id}</td>
+                  <td>{b.reason}</td>
+                  <td>
+                    <button onClick={() => deleteBlacklist(b.id)}>移除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="card">
@@ -534,54 +647,72 @@ export default function AdminPage() {
           </select>
 
           <input
-            placeholder="搜尋活動 / 玩家 / UID / Discord / 段位"
+            placeholder="搜尋活動 / 玩家 / UID / Discord / 段位 / 兵種"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 320 }}
           />
         </div>
 
-        <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              <th>活動名稱</th>
-              <th>遊戲名稱</th>
-              <th>遊戲UID</th>
-              <th>Discord</th>
-              <th>段位</th>
-              <th>狀態</th>
-              <th>黑名單警示</th>
-              <th>報名時間</th>
-            </tr>
-          </thead>
+        <div style={{ overflowX: "auto" }}>
+          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th>活動名稱</th>
+                <th>遊戲名稱</th>
+                <th>UID</th>
+                <th>Discord</th>
+                <th>段位</th>
+                <th>主要兵種</th>
+                <th>次要兵種</th>
+                <th>備註</th>
+                <th>狀態</th>
+                <th>黑名單</th>
+                <th>報名時間</th>
+                <th>操作</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {filteredRegistrations.map((item) => {
-              const black = isBlacklisted(item);
+            <tbody>
+              {filteredRegistrations.map((item) => {
+                const black = isBlacklisted(item);
 
-              return (
-                <tr key={item.id} style={{ backgroundColor: black ? "#ffe0e0" : "white" }}>
-                  <td>{item.events?.title}</td>
-                  <td>{item.game_name}</td>
-                  <td>{item.game_id}</td>
-                  <td>{item.discord_name}</td>
-                  <td>{item.rank}</td>
-                  <td>{item.status}</td>
-                  <td>
-                    {black ? (
-                      <span className="danger">
-                        ⚠ 黑名單：{black.reason || "未填原因"}
-                      </span>
-                    ) : (
-                      "正常"
-                    )}
-                  </td>
-                  <td>{new Date(item.created_at).toLocaleString("zh-TW")}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                return (
+                  <tr key={item.id} style={{ backgroundColor: black ? "#ffe0e0" : "white" }}>
+                    <td>{item.events?.title}</td>
+                    <td>{item.game_name}</td>
+                    <td>{item.game_id}</td>
+                    <td>{item.discord_name}</td>
+                    <td>{item.rank}</td>
+                    <td>{item.unit_1}</td>
+                    <td>{item.unit_2}</td>
+                    <td>{item.note}</td>
+                    <td>{item.status}</td>
+                    <td>
+                      {black ? (
+                        <span className="danger">
+                          ⚠ {black.reason || "未填原因"}
+                        </span>
+                      ) : (
+                        "正常"
+                      )}
+                    </td>
+                    <td>{new Date(item.created_at).toLocaleString("zh-TW")}</td>
+                    <td>
+                      <button onClick={() => editRegistration(item)}>修改</button>
+                      <button
+                        onClick={() => deleteRegistration(item.id)}
+                        style={{ marginLeft: 8 }}
+                      >
+                        刪除
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   );
