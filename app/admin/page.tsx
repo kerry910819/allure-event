@@ -76,6 +76,18 @@ function toDateTimeLocal(dateString: string | null) {
   return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
+function taipeiInputToIso(input: string) {
+  if (!input) return null;
+
+  const [datePart, timePart] = input.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  const utcTime = Date.UTC(year, month - 1, day, hour - 8, minute);
+
+  return new Date(utcTime).toISOString();
+}
+
 export default function AdminPage() {
   const [isLogin, setIsLogin] = useState(false);
   const [username, setUsername] = useState("");
@@ -157,7 +169,7 @@ export default function AdminPage() {
       is_open: true,
       event_date: new Date().toISOString(),
       registration_deadline: newDeadline
-        ? new Date(newDeadline).toISOString()
+        ? taipeiInputToIso(newDeadline)
         : null,
       require_game_name: requireGameName,
       require_game_id: requireGameId,
@@ -207,7 +219,7 @@ export default function AdminPage() {
       .from("events")
       .update({
         registration_deadline: deadlineInput
-          ? new Date(deadlineInput).toISOString()
+          ? taipeiInputToIso(deadlineInput)
           : null,
       })
       .eq("id", event.id);
@@ -521,68 +533,28 @@ export default function AdminPage() {
               flexWrap: "wrap",
             }}
           >
-            <label>
-              <input
-                type="checkbox"
-                checked={requireGameName}
-                onChange={(e) => setRequireGameName(e.target.checked)}
-              />
-              遊戲名稱必填
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={requireGameId}
-                onChange={(e) => setRequireGameId(e.target.checked)}
-              />
-              UID必填
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={requireDiscord}
-                onChange={(e) => setRequireDiscord(e.target.checked)}
-              />
-              Discord必填
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={requireRank}
-                onChange={(e) => setRequireRank(e.target.checked)}
-              />
-              段位必填
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={requireUnit1}
-                onChange={(e) => setRequireUnit1(e.target.checked)}
-              />
-              主要兵種必填
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={requireUnit2}
-                onChange={(e) => setRequireUnit2(e.target.checked)}
-              />
-              次要兵種必填
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={requireNote}
-                onChange={(e) => setRequireNote(e.target.checked)}
-              />
-              備註必填
-            </label>
+            {[
+              ["遊戲名稱必填", requireGameName, setRequireGameName],
+              ["UID必填", requireGameId, setRequireGameId],
+              ["Discord必填", requireDiscord, setRequireDiscord],
+              ["段位必填", requireRank, setRequireRank],
+              ["主要兵種必填", requireUnit1, setRequireUnit1],
+              ["次要兵種必填", requireUnit2, setRequireUnit2],
+              ["備註必填", requireNote, setRequireNote],
+            ].map(([label, checked, setter]) => (
+              <label key={label as string}>
+                <input
+                  type="checkbox"
+                  checked={checked as boolean}
+                  onChange={(e) =>
+                    (setter as React.Dispatch<React.SetStateAction<boolean>>)(
+                      e.target.checked
+                    )
+                  }
+                />
+                {label as string}
+              </label>
+            ))}
           </div>
 
           <div style={{ marginTop: 15 }}>
