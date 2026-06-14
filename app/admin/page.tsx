@@ -11,6 +11,7 @@ type EventItem = {
   is_open: boolean;
   event_date: string | null;
   registration_deadline: string | null;
+  created_at: string;
   require_game_name: boolean;
   require_game_id: boolean;
   require_discord: boolean;
@@ -47,6 +48,16 @@ function formatDate(dateString: string | null) {
   return new Date(dateString).toLocaleString("zh-TW");
 }
 
+function toDateTimeLocal(dateString: string | null) {
+  if (!dateString) return "";
+
+  const d = new Date(dateString);
+  const offset = d.getTimezoneOffset();
+  const localDate = new Date(d.getTime() - offset * 60000);
+
+  return localDate.toISOString().slice(0, 16);
+}
+
 export default function AdminPage() {
   const [isLogin, setIsLogin] = useState(false);
   const [username, setUsername] = useState("");
@@ -62,7 +73,6 @@ export default function AdminPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newMaxPlayers, setNewMaxPlayers] = useState(30);
-  const [newEventDate, setNewEventDate] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
 
   const [requireGameName, setRequireGameName] = useState(true);
@@ -127,10 +137,11 @@ export default function AdminPage() {
       description: newDesc,
       max_players: newMaxPlayers,
       is_open: true,
-      event_date: newEventDate ? new Date(newEventDate).toISOString() : null,
+      event_date: new Date().toISOString(),
       registration_deadline: newDeadline
         ? new Date(newDeadline).toISOString()
         : null,
+
       require_game_name: requireGameName,
       require_game_id: requireGameId,
       require_discord: requireDiscord,
@@ -148,7 +159,6 @@ export default function AdminPage() {
     setNewTitle("");
     setNewDesc("");
     setNewMaxPlayers(30);
-    setNewEventDate("");
     setNewDeadline("");
 
     loadData();
@@ -162,6 +172,31 @@ export default function AdminPage() {
 
     if (error) {
       alert("更新失敗：" + error.message);
+      return;
+    }
+
+    loadData();
+  }
+
+  async function updateDeadline(event: EventItem) {
+    const deadlineInput = prompt(
+      "請輸入新的報名截止時間，格式：YYYY-MM-DDTHH:mm\n例如：2026-06-17T18:00",
+      toDateTimeLocal(event.registration_deadline)
+    );
+
+    if (deadlineInput === null) return;
+
+    const { error } = await supabase
+      .from("events")
+      .update({
+        registration_deadline: deadlineInput
+          ? new Date(deadlineInput).toISOString()
+          : null,
+      })
+      .eq("id", event.id);
+
+    if (error) {
+      alert("修改截止時間失敗：" + error.message);
       return;
     }
 
@@ -259,11 +294,13 @@ export default function AdminPage() {
     setBlackName("");
     setBlackId("");
     setBlackReason("");
+
     loadData();
   }
 
   async function deleteBlacklist(id: string) {
     if (!confirm("確定移除黑名單？")) return;
+
     await supabase.from("blacklist").delete().eq("id", id);
     loadData();
   }
@@ -288,6 +325,7 @@ export default function AdminPage() {
 
   const filteredRegistrations = registrations.filter((item) => {
     const keyword = search.toLowerCase();
+
     const matchEvent =
       selectedEventId === "all" || item.event_id === selectedEventId;
 
@@ -347,19 +385,23 @@ export default function AdminPage() {
         )
         .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
-    link.href = url;
-
     const selectedEvent = events.find((e) => e.id === selectedEventId);
+
+    link.href = url;
     link.download =
       selectedEventId === "all"
         ? "Allure全部報名名單.csv"
         : `${selectedEvent?.title || "活動"}報名名單.csv`;
 
     link.click();
+
     URL.revokeObjectURL(url);
   }
 
@@ -412,9 +454,11 @@ export default function AdminPage() {
         <button onClick={logout} style={{ marginRight: 10 }}>
           登出
         </button>
+
         <button onClick={loadData} style={{ marginRight: 10 }}>
           重新整理
         </button>
+
         <button onClick={exportCsv}>匯出目前篩選名單</button>
       </section>
 
@@ -444,18 +488,20 @@ export default function AdminPage() {
 
             <input
               type="datetime-local"
-              value={newEventDate}
-              onChange={(e) => setNewEventDate(e.target.value)}
-            />
-
-            <input
-              type="datetime-local"
               value={newDeadline}
               onChange={(e) => setNewDeadline(e.target.value)}
+              title="報名截止時間"
             />
           </div>
 
-          <div style={{ marginTop: 15, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div
+            style={{
+              marginTop: 15,
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
             <label>
               <input
                 type="checkbox"
@@ -530,14 +576,19 @@ export default function AdminPage() {
         <h2>活動管理</h2>
 
         <div style={{ overflowX: "auto" }}>
-          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table
+            border={1}
+            cellPadding={8}
+            style={{ borderCollapse: "collapse", width: "100%" }}
+          >
             <thead>
               <tr>
                 <th>活動名稱</th>
                 <th>說明</th>
-                <th>活動日期</th>
+                <th>建立時間</th>
                 <th>報名截止</th>
                 <th>目前人數</th>
+                <th>剩餘名額</th>
                 <th>上限</th>
                 <th>狀態</th>
                 <th>操作</th>
@@ -545,29 +596,42 @@ export default function AdminPage() {
             </thead>
 
             <tbody>
-              {events.map((event) => (
-                <tr key={event.id}>
-                  <td>{event.title}</td>
-                  <td>{event.description}</td>
-                  <td>{formatDate(event.event_date)}</td>
-                  <td>{formatDate(event.registration_deadline)}</td>
-                  <td>{countByEvent(event.id)}</td>
-                  <td>{event.max_players}</td>
-                  <td>{event.is_open ? "開放中" : "已關閉"}</td>
-                  <td>
-                    <button onClick={() => toggleEvent(event)}>
-                      {event.is_open ? "關閉報名" : "開放報名"}
-                    </button>
+              {events.map((event) => {
+                const currentCount = countByEvent(event.id);
+                const remaining = event.max_players - currentCount;
 
-                    <button
-                      onClick={() => deleteEvent(event.id)}
-                      style={{ marginLeft: 8 }}
-                    >
-                      刪除
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                return (
+                  <tr key={event.id}>
+                    <td>{event.title}</td>
+                    <td>{event.description}</td>
+                    <td>{formatDate(event.event_date || event.created_at)}</td>
+                    <td>{formatDate(event.registration_deadline)}</td>
+                    <td>{currentCount}</td>
+                    <td>{remaining > 0 ? remaining : 0}</td>
+                    <td>{event.max_players}</td>
+                    <td>{event.is_open ? "開放中" : "已關閉"}</td>
+                    <td>
+                      <button onClick={() => toggleEvent(event)}>
+                        {event.is_open ? "關閉報名" : "開放報名"}
+                      </button>
+
+                      <button
+                        onClick={() => updateDeadline(event)}
+                        style={{ marginLeft: 8 }}
+                      >
+                        修改截止
+                      </button>
+
+                      <button
+                        onClick={() => deleteEvent(event.id)}
+                        style={{ marginLeft: 8 }}
+                      >
+                        刪除
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -602,7 +666,11 @@ export default function AdminPage() {
         </form>
 
         <div style={{ overflowX: "auto", marginTop: 12 }}>
-          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table
+            border={1}
+            cellPadding={8}
+            style={{ borderCollapse: "collapse", width: "100%" }}
+          >
             <thead>
               <tr>
                 <th>遊戲名稱</th>
@@ -655,7 +723,11 @@ export default function AdminPage() {
         </div>
 
         <div style={{ overflowX: "auto" }}>
-          <table border={1} cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table
+            border={1}
+            cellPadding={8}
+            style={{ borderCollapse: "collapse", width: "100%" }}
+          >
             <thead>
               <tr>
                 <th>活動名稱</th>
@@ -678,7 +750,10 @@ export default function AdminPage() {
                 const black = isBlacklisted(item);
 
                 return (
-                  <tr key={item.id} style={{ backgroundColor: black ? "#ffe0e0" : "white" }}>
+                  <tr
+                    key={item.id}
+                    style={{ backgroundColor: black ? "#ffe0e0" : "white" }}
+                  >
                     <td>{item.events?.title}</td>
                     <td>{item.game_name}</td>
                     <td>{item.game_id}</td>
@@ -700,6 +775,7 @@ export default function AdminPage() {
                     <td>{new Date(item.created_at).toLocaleString("zh-TW")}</td>
                     <td>
                       <button onClick={() => editRegistration(item)}>修改</button>
+
                       <button
                         onClick={() => deleteRegistration(item.id)}
                         style={{ marginLeft: 8 }}
